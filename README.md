@@ -1,3 +1,8 @@
+<p align="center">
+  <a href="https://github.com/archipelag-io/api-docs/blob/main/LICENSE"><img src="https://img.shields.io/github/license/archipelag-io/api-docs" alt="License"></a>
+  <a href="https://spec.openapis.org/oas/v3.1.0"><img src="https://img.shields.io/badge/OpenAPI-3.1-blue" alt="OpenAPI 3.1"></a>
+</p>
+
 # Archipelag.io API Reference
 
 Interactive API documentation powered by [Scalar](https://github.com/scalar/scalar).
@@ -36,3 +41,9 @@ Deployed to Cloudflare Pages. On push to `main`, Cloudflare serves the static fi
 - Root directory: `api-docs`
 
 The coordinator app also serves Scalar at `/api/v1/docs` for authenticated try-it-out against the live API.
+
+## Contributing
+
+The OpenAPI spec is generated from the coordinator codebase. If you find inaccuracies in the API documentation, please [open an issue](https://github.com/archipelag-io/api-docs/issues) describing the discrepancy.
+
+For general contribution guidelines, see our [Contributing Guide](https://github.com/archipelag-io/.github/blob/main/CONTRIBUTING.md) and [Code of Conduct](https://github.com/archipelag-io/.github/blob/main/CODE_OF_CONDUCT.md).
