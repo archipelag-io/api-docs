@@ -1,0 +1,23 @@
+[tasks.dev]
+description = "Serve API docs locally"
+run = "npx serve ."
+
+[tasks."spec:fetch"]
+description = "Fetch OpenAPI spec from production"
+run = "curl -sf https://app.archipelag.io/api/v1/openapi.json -o openapi.json"
+
+[tasks."spec:fetch:local"]
+description = "Fetch OpenAPI spec from local dev server"
+run = "curl -sf http://localhost:4000/api/v1/openapi.json -o openapi.json"
+
+[tasks."spec:generate"]
+description = "Generate OpenAPI spec from coordinator source"
+dir = "{{config_root}}/../app"
+run = """
+mix run --no-start -e '
+  spec = CoordinatorWeb.Api.OpenAPIController.openapi_spec()
+  json = Jason.encode!(spec, pretty: true)
+  File.write!("../api-docs/openapi.json", json)
+  IO.puts("Wrote openapi.json (#{byte_size(json)} bytes)")
+'
+"""

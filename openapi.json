@@ -1,0 +1,4384 @@
+{
+  "info": {
+    "version": "0.1.0",
+    "description": "Archipelag.io is a distributed compute network that routes workloads to nearby independently-operated hosts.\n\n## Authentication\n\nMost endpoints require authentication via API key. Include your API key in the `Authorization` header:\n\n```\nAuthorization: Bearer ak_your_api_key_here\n```\n\nAPI keys have scopes (`read`, `write`) that control access to endpoints.\n\n## OpenAI Compatibility\n\nThe `/chat/completions` and `/models` endpoints are OpenAI-compatible, allowing drop-in replacement for applications using the OpenAI SDK.\n\n## Rate Limits\n\n- **API endpoints:** 100 requests/minute per API key\n- **Auth endpoints:** 5 requests/minute per IP\n\nRate limit information is included in response headers:\n- `X-RateLimit-Limit` — Maximum requests per window\n- `X-RateLimit-Remaining` — Requests remaining in current window\n- `X-RateLimit-Reset` — Unix timestamp when the window resets\n\n## Market Pricing\n\nArchipelag.io uses a bid/ask market for compute pricing. Hosts set asking prices, users set bid prices, and the system clears at market rates. In beta mode, credits are pegged at $0.01 USD each.\n",
+    "title": "Archipelag.io API",
+    "contact": {
+      "name": "Archipelag.io Support",
+      "url": "https://archipelag.io",
+      "email": "support@archipelag.io"
+    },
+    "license": {
+      "name": "Proprietary",
+      "url": "https://archipelag.io/terms"
+    }
+  },
+  "components": {
+    "parameters": {
+      "limitParam": {
+        "in": "query",
+        "name": "limit",
+        "description": "Maximum number of items to return",
+        "schema": {
+          "default": 20,
+          "maximum": 100,
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "offsetParam": {
+        "in": "query",
+        "name": "offset",
+        "description": "Number of items to skip",
+        "schema": {
+          "default": 0,
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "schemas": {
+      "ApiKeyCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string",
+            "description": "Full API key — shown only once"
+          },
+          "scopes": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "key_prefix": {
+            "type": "string"
+          }
+        }
+      },
+      "KarmaStats": {
+        "type": "object",
+        "properties": {
+          "host_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "karma": {
+            "type": "integer"
+          },
+          "total_compute_minutes": {
+            "type": "number"
+          },
+          "can_monetize": {
+            "type": "boolean"
+          },
+          "events_by_type": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "count": {
+                  "type": "integer"
+                },
+                "total_delta": {
+                  "type": "integer"
+                },
+                "total_minutes": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "hours_until_monetization": {
+            "type": "number"
+          },
+          "karma_deficit": {
+            "type": "integer"
+          },
+          "pending_minutes": {
+            "type": "number"
+          },
+          "total_compute_hours": {
+            "type": "number"
+          }
+        }
+      },
+      "ReviewCreate": {
+        "type": "object",
+        "required": [
+          "review"
+        ],
+        "properties": {
+          "review": {
+            "type": "object",
+            "required": [
+              "rating"
+            ],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "comment": {
+                "type": "string"
+              },
+              "rating": {
+                "maximum": 5,
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "string",
+            "example": "read,write"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "key_prefix": {
+            "type": "string",
+            "example": "ak_abc..."
+          },
+          "last_used_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "AdminHostDetail": {
+        "type": "object",
+        "description": "Extended host details including approval/suspension metadata"
+      },
+      "MarketRateDetail": {
+        "type": "object",
+        "properties": {
+          "workload_slug": {
+            "type": "string"
+          },
+          "jobs_cleared": {
+            "type": "integer"
+          },
+          "active_asks": {
+            "type": "integer"
+          },
+          "active_bids": {
+            "type": "integer"
+          },
+          "avg_ask_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "avg_bid_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "avg_clearing_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "max_clearing_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "median_clearing_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "min_clearing_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "snapshot_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "usd_equivalent": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AgentUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "checksum_sha256": {
+            "type": "string"
+          },
+          "current_version": {
+            "type": "string"
+          },
+          "download_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "is_critical": {
+            "type": "boolean"
+          },
+          "latest_version": {
+            "type": "string"
+          },
+          "release_notes": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer"
+          },
+          "update_available": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MarketplaceWorkloadDetail": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "stats": {
+            "type": "object",
+            "properties": {
+              "average_rating": {
+                "type": "number"
+              },
+              "review_count": {
+                "type": "integer"
+              },
+              "total_jobs": {
+                "type": "integer"
+              }
+            }
+          },
+          "category": {
+            "type": "string"
+          },
+          "requirements": {
+            "type": "object"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "slug": {
+            "type": "string"
+          },
+          "icon_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "pricing": {
+            "type": "object"
+          },
+          "tagline": {
+            "type": "string"
+          },
+          "developer": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              }
+            }
+          },
+          "input_schema": {
+            "type": "object"
+          },
+          "output_schema": {
+            "type": "object"
+          },
+          "readme": {
+            "type": "string"
+          },
+          "screenshots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "VerificationStatus": {
+        "type": "object",
+        "properties": {
+          "banned": {
+            "type": "boolean"
+          },
+          "kyc_manually_verified": {
+            "type": "boolean"
+          },
+          "kyc_status": {
+            "type": "string",
+            "enum": [
+              "unverified",
+              "pending",
+              "verified",
+              "rejected"
+            ]
+          },
+          "kyc_verified_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "kyc_verified_country": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AdminUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string"
+          },
+          "ban_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "banned": {
+            "type": "boolean"
+          },
+          "banned_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "inserted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kyc_manually_verified": {
+            "type": "boolean"
+          },
+          "kyc_rejected_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "kyc_rejection_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "kyc_status": {
+            "type": "string"
+          },
+          "kyc_verified_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "kyc_verified_country": {
+            "type": "string",
+            "nullable": true
+          },
+          "kyc_verified_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "publisher_tier": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "MarketRate": {
+        "type": "object",
+        "properties": {
+          "workload": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              }
+            }
+          },
+          "current_rate": {
+            "type": "string",
+            "nullable": true
+          },
+          "current_rate_usd": {
+            "type": "string",
+            "nullable": true
+          },
+          "demand": {
+            "type": "integer"
+          },
+          "jobs_cleared": {
+            "type": "integer"
+          },
+          "supply": {
+            "type": "integer"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "VerificationSession": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string"
+          },
+          "inserted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "failure_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "stripe_session_id": {
+            "type": "string"
+          },
+          "verification_type": {
+            "type": "string"
+          }
+        }
+      },
+      "MarketplaceCategory": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "Host": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "online",
+              "offline",
+              "suspended"
+            ]
+          },
+          "active_jobs": {
+            "type": "integer"
+          },
+          "cpu_cores": {
+            "type": "integer"
+          },
+          "gpu_model": {
+            "type": "string",
+            "nullable": true
+          },
+          "gpu_vram_mb": {
+            "type": "integer",
+            "nullable": true
+          },
+          "jobs_completed": {
+            "type": "integer"
+          },
+          "jobs_failed": {
+            "type": "integer"
+          },
+          "karma": {
+            "type": "integer"
+          },
+          "last_heartbeat_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "ram_mb": {
+            "type": "integer"
+          },
+          "region": {
+            "type": "string"
+          },
+          "reputation_score": {
+            "type": "number"
+          },
+          "karma_pending_minutes": {
+            "type": "number"
+          },
+          "total_compute_minutes": {
+            "type": "number"
+          }
+        }
+      },
+      "MarketplaceWorkload": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "requirements": {
+            "type": "object"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "average_rating": {
+            "type": "number"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "icon_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "pricing": {
+            "type": "object"
+          },
+          "review_count": {
+            "type": "integer"
+          },
+          "tagline": {
+            "type": "string"
+          },
+          "total_jobs": {
+            "type": "integer"
+          }
+        }
+      },
+      "Workload": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "requirements": {
+            "type": "object",
+            "properties": {
+              "cpu_cores": {
+                "type": "integer",
+                "nullable": true
+              },
+              "ram_mb": {
+                "type": "integer",
+                "nullable": true
+              },
+              "vram_mb": {
+                "type": "integer",
+                "nullable": true
+              }
+            }
+          },
+          "runtime_type": {
+            "type": "string",
+            "enum": [
+              "container",
+              "wasm",
+              "llmcpp"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "per_job": {
+                "type": "string"
+              },
+              "per_second": {
+                "type": "string"
+              },
+              "per_token": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ChatCompletionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "completion_tokens": {
+                "type": "integer"
+              },
+              "prompt_tokens": {
+                "type": "integer"
+              },
+              "total_tokens": {
+                "type": "integer"
+              }
+            }
+          },
+          "model": {
+            "type": "string"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "object",
+                  "properties": {
+                    "role": {
+                      "type": "string"
+                    },
+                    "content": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "finish_reason": {
+                  "type": "string",
+                  "enum": [
+                    "stop",
+                    "length",
+                    "content_filter"
+                  ]
+                }
+              }
+            }
+          },
+          "created": {
+            "type": "integer",
+            "description": "Unix timestamp"
+          },
+          "object": {
+            "type": "string",
+            "example": "chat.completion"
+          }
+        }
+      },
+      "Submission": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "workload_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "average_rating": {
+            "type": "number"
+          },
+          "inserted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "icon_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "review_count": {
+            "type": "integer"
+          },
+          "tagline": {
+            "type": "string"
+          },
+          "total_jobs": {
+            "type": "integer"
+          },
+          "developer_id": {
+            "type": "integer"
+          }
+        }
+      },
+      "AdminHost": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "active_jobs": {
+            "type": "integer"
+          },
+          "capabilities_verified": {
+            "type": "boolean"
+          },
+          "capabilities_verified_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cpu_cores": {
+            "type": "integer"
+          },
+          "gpu_model": {
+            "type": "string",
+            "nullable": true
+          },
+          "gpu_vram_mb": {
+            "type": "integer",
+            "nullable": true
+          },
+          "jobs_completed": {
+            "type": "integer"
+          },
+          "jobs_failed": {
+            "type": "integer"
+          },
+          "karma": {
+            "type": "integer"
+          },
+          "last_heartbeat_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "ram_mb": {
+            "type": "integer"
+          },
+          "region": {
+            "type": "string"
+          },
+          "reputation_score": {
+            "type": "number"
+          },
+          "suspended_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "suspended_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "verification_notes": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AskingPriceCreate": {
+        "type": "object",
+        "required": [
+          "workload_slug",
+          "asking_price",
+          "host_id"
+        ],
+        "properties": {
+          "host_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workload_slug": {
+            "type": "string",
+            "example": "llm-chat"
+          },
+          "asking_price": {
+            "type": "string",
+            "description": "Decimal string",
+            "example": "2.00"
+          }
+        }
+      },
+      "KarmaEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "balance_after": {
+            "type": "integer"
+          },
+          "compute_minutes": {
+            "type": "number"
+          },
+          "delta": {
+            "type": "integer"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "was_monetizing": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "input": {
+            "type": "object"
+          },
+          "output": {
+            "type": "object",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "assigned",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "workload": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminWorkload": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "approved": {
+            "type": "boolean"
+          },
+          "inserted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "container_image": {
+            "type": "string",
+            "nullable": true
+          },
+          "required_cpu_cores": {
+            "type": "integer",
+            "nullable": true
+          },
+          "required_ram_mb": {
+            "type": "integer",
+            "nullable": true
+          },
+          "required_vram_mb": {
+            "type": "integer",
+            "nullable": true
+          },
+          "runtime_type": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "wasm_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ModelList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Model"
+            }
+          },
+          "object": {
+            "type": "string",
+            "example": "list"
+          }
+        }
+      },
+      "VerificationStats": {
+        "type": "object",
+        "description": "Aggregate KYC verification statistics"
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "helpful_count": {
+            "type": "integer"
+          },
+          "not_helpful_count": {
+            "type": "integer"
+          },
+          "inserted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rating": {
+            "maximum": 5,
+            "type": "integer",
+            "minimum": 1
+          },
+          "verified_purchase": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "string",
+            "example": "0.1.0"
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "nats": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "error"
+                ]
+              },
+              "postgres": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "error"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "Account": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "admin"
+            ]
+          },
+          "credits": {
+            "type": "string",
+            "description": "Decimal string credit balance"
+          }
+        }
+      },
+      "JobCreate": {
+        "type": "object",
+        "required": [
+          "workload",
+          "input"
+        ],
+        "properties": {
+          "input": {
+            "type": "object",
+            "description": "Workload-specific input (max 256KB serialized)"
+          },
+          "workload": {
+            "type": "string",
+            "description": "Workload slug",
+            "example": "llm-chat"
+          },
+          "bid_price": {
+            "type": "string",
+            "description": "Optional bid price in credits (decimal string)",
+            "example": "1.50"
+          }
+        }
+      },
+      "MarketRateSnapshot": {
+        "type": "object",
+        "properties": {
+          "jobs_cleared": {
+            "type": "integer"
+          },
+          "active_asks": {
+            "type": "integer"
+          },
+          "active_bids": {
+            "type": "integer"
+          },
+          "avg_ask_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "avg_bid_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "avg_clearing_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "snapshot_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SubmissionCreate": {
+        "type": "object",
+        "required": [
+          "submission"
+        ],
+        "properties": {
+          "submission": {
+            "type": "object",
+            "required": [
+              "name",
+              "slug",
+              "tagline",
+              "category",
+              "container_image"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "container_image": {
+                "type": "string"
+              },
+              "required_cpu_cores": {
+                "type": "integer"
+              },
+              "required_ram_mb": {
+                "type": "integer"
+              },
+              "required_vram_mb": {
+                "type": "integer"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "tagline": {
+                "type": "string"
+              },
+              "input_schema": {
+                "type": "object"
+              },
+              "output_schema": {
+                "type": "object"
+              },
+              "readme": {
+                "type": "string"
+              },
+              "price_per_job": {
+                "type": "string"
+              },
+              "price_per_second": {
+                "type": "string"
+              },
+              "price_per_token": {
+                "type": "string"
+              },
+              "revenue_share": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ChatCompletionRequest": {
+        "type": "object",
+        "required": [
+          "messages"
+        ],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "role",
+                "content"
+              ],
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "system",
+                    "user",
+                    "assistant",
+                    "function",
+                    "tool"
+                  ]
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 32768
+                }
+              }
+            },
+            "maxItems": 128,
+            "minItems": 1
+          },
+          "stop": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "stream": {
+            "default": false,
+            "type": "boolean"
+          },
+          "user": {
+            "type": "string"
+          },
+          "n": {
+            "default": 1,
+            "type": "integer"
+          },
+          "frequency_penalty": {
+            "default": 0,
+            "type": "number"
+          },
+          "max_tokens": {
+            "default": 1024,
+            "maximum": 4096,
+            "type": "integer",
+            "minimum": 1
+          },
+          "model": {
+            "default": "gpt-3.5-turbo",
+            "type": "string",
+            "example": "gpt-3.5-turbo"
+          },
+          "presence_penalty": {
+            "default": 0,
+            "type": "number"
+          },
+          "temperature": {
+            "default": 0.7,
+            "maximum": 2,
+            "type": "number",
+            "minimum": 0
+          },
+          "top_p": {
+            "default": 1.0,
+            "maximum": 1,
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "Model": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "created": {
+            "type": "integer"
+          },
+          "object": {
+            "type": "string",
+            "example": "model"
+          },
+          "owned_by": {
+            "type": "string",
+            "example": "archipelag"
+          }
+        }
+      },
+      "AskingPrice": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "host_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workload_id": {
+            "type": "integer"
+          },
+          "asking_price": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "scheme": "bearer",
+        "type": "http",
+        "description": "API key in format: `ak_xxxxxxxxxxxxxxxx`",
+        "bearerFormat": "API Key"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Service health and status"
+    },
+    {
+      "name": "Chat",
+      "description": "OpenAI-compatible chat completions"
+    },
+    {
+      "name": "Models",
+      "description": "OpenAI-compatible model listing"
+    },
+    {
+      "name": "Jobs",
+      "description": "Job submission and management"
+    },
+    {
+      "name": "Workloads",
+      "description": "Available compute workloads"
+    },
+    {
+      "name": "Hosts",
+      "description": "Host information and karma"
+    },
+    {
+      "name": "Account",
+      "description": "User account information"
+    },
+    {
+      "name": "API Keys",
+      "description": "API key management"
+    },
+    {
+      "name": "Verification",
+      "description": "Identity verification (KYC)"
+    },
+    {
+      "name": "Market",
+      "description": "Compute market pricing"
+    },
+    {
+      "name": "Marketplace",
+      "description": "Workload marketplace browsing"
+    },
+    {
+      "name": "Marketplace Reviews",
+      "description": "Workload reviews and ratings"
+    },
+    {
+      "name": "Marketplace Submissions",
+      "description": "Developer workload submissions"
+    },
+    {
+      "name": "Agent",
+      "description": "Node agent updates"
+    },
+    {
+      "name": "Admin: Hosts",
+      "description": "Host administration"
+    },
+    {
+      "name": "Admin: Workloads",
+      "description": "Workload administration"
+    },
+    {
+      "name": "Admin: Verification",
+      "description": "KYC/identity administration"
+    },
+    {
+      "name": "Admin: Marketplace",
+      "description": "Marketplace submission administration"
+    }
+  ],
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/admin/marketplace/submissions/pending": {
+      "get": {
+        "operationId": "adminListPendingSubmissions",
+        "responses": {
+          "200": {
+            "description": "Pending submissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "submissions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Submission"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List pending submissions",
+        "tags": [
+          "Admin: Marketplace"
+        ]
+      }
+    },
+    "/api/v1/admin/workloads/{id}/enable": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminEnableWorkload",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Enable workload",
+        "tags": [
+          "Admin: Workloads"
+        ]
+      }
+    },
+    "/api/v1/admin/hosts/{id}/suspend": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "adminSuspendHost",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Suspend host",
+        "tags": [
+          "Admin: Hosts"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/market/rates/{workload_slug}": {
+      "get": {
+        "description": "Returns detailed market rate data for a specific workload including bid/ask spread.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workload_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "llm-chat"
+          }
+        ],
+        "operationId": "getMarketRate",
+        "responses": {
+          "200": {
+            "description": "Market rate details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MarketRateDetail"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workload not found"
+          }
+        },
+        "summary": "Get market rate for workload",
+        "tags": [
+          "Market"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/hosts/{id}/karma": {
+      "get": {
+        "description": "Returns karma stats for a host including monetization eligibility and event breakdowns.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "getHostKarma",
+        "responses": {
+          "200": {
+            "description": "Karma stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KarmaStats"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Host not found"
+          }
+        },
+        "summary": "Get host karma",
+        "tags": [
+          "Hosts"
+        ]
+      }
+    },
+    "/api/v1/models/{model_id}": {
+      "get": {
+        "description": "Retrieves a specific model by ID.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getModel",
+        "responses": {
+          "200": {
+            "description": "Model details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Model"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Model not found"
+          }
+        },
+        "summary": "Get model",
+        "tags": [
+          "Models"
+        ]
+      }
+    },
+    "/api/v1/agent/update": {
+      "get": {
+        "description": "Checks if a newer version of the node agent is available.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "version",
+            "description": "Current agent version",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "0.1.0"
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "description": "Agent platform",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "linux-x86_64"
+          },
+          {
+            "in": "query",
+            "name": "host_id",
+            "description": "Host ID for targeted rollouts",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "checkAgentUpdate",
+        "responses": {
+          "200": {
+            "description": "Update check result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentUpdateResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Check for agent updates",
+        "tags": [
+          "Agent"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/admin/verification/users/{id}/ban": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminBanUser",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Ban user",
+        "tags": [
+          "Admin: Verification"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/marketplace/reviews/{id}": {
+      "put": {
+        "description": "Updates an existing review.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "updateReview",
+        "responses": {
+          "200": {
+            "description": "Review updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review not found"
+          }
+        },
+        "summary": "Update review",
+        "tags": [
+          "Marketplace Reviews"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCreate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Deletes a review.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "deleteReview",
+        "responses": {
+          "200": {
+            "description": "Review deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review not found"
+          }
+        },
+        "summary": "Delete review",
+        "tags": [
+          "Marketplace Reviews"
+        ]
+      }
+    },
+    "/api/v1/jobs/{id}": {
+      "get": {
+        "description": "Retrieves a specific job by ID.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "getJob",
+        "responses": {
+          "200": {
+            "description": "Job details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        },
+        "summary": "Get job",
+        "tags": [
+          "Jobs"
+        ]
+      },
+      "delete": {
+        "description": "Cancels a running or queued job.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "cancelJob",
+        "responses": {
+          "200": {
+            "description": "Job cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "example": "cancelled"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        },
+        "summary": "Cancel job",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/market/rates": {
+      "get": {
+        "description": "Returns current market rates for all workloads.",
+        "operationId": "listMarketRates",
+        "responses": {
+          "200": {
+            "description": "Current market rates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MarketRate"
+                      }
+                    },
+                    "beta_mode": {
+                      "type": "boolean"
+                    },
+                    "credit_peg_usd": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List current market rates",
+        "tags": [
+          "Market"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/workloads/{slug}": {
+      "get": {
+        "description": "Retrieves a specific workload by slug.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getWorkload",
+        "responses": {
+          "200": {
+            "description": "Workload details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workload not found"
+          }
+        },
+        "summary": "Get workload",
+        "tags": [
+          "Workloads"
+        ]
+      }
+    },
+    "/api/v1/admin/hosts/unverified": {
+      "get": {
+        "description": "Lists hosts with unverified capabilities.",
+        "operationId": "adminListUnverifiedHosts",
+        "responses": {
+          "200": {
+            "description": "Unverified hosts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "hosts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AdminHost"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List unverified hosts",
+        "tags": [
+          "Admin: Hosts"
+        ]
+      }
+    },
+    "/api/v1/marketplace/reviews/{id}/helpful": {
+      "post": {
+        "description": "Marks a review as helpful or not helpful.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "markReviewHelpful",
+        "responses": {
+          "200": {
+            "description": "Helpfulness recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "helpful_count": {
+                      "type": "integer"
+                    },
+                    "not_helpful_count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Mark review helpfulness",
+        "tags": [
+          "Marketplace Reviews"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "helpful"
+                ],
+                "properties": {
+                  "helpful": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/marketplace/submissions/{id}/submit": {
+      "post": {
+        "description": "Submits a draft for review by the Archipelag.io team.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "submitForReview",
+        "responses": {
+          "200": {
+            "description": "Submitted for review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "submission": {
+                      "$ref": "#/components/schemas/Submission"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Submission not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "summary": "Submit for review",
+        "tags": [
+          "Marketplace Submissions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Optional fields to update before submitting",
+                "properties": {
+                  "submission": {
+                    "$ref": "#/components/schemas/SubmissionCreate"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/verification/stats": {
+      "get": {
+        "description": "Returns aggregate KYC verification statistics.",
+        "operationId": "adminGetVerificationStats",
+        "responses": {
+          "200": {
+            "description": "KYC stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationStats"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get KYC statistics",
+        "tags": [
+          "Admin: Verification"
+        ]
+      }
+    },
+    "/api/v1/models": {
+      "get": {
+        "description": "Lists available models. OpenAI-compatible endpoint.",
+        "operationId": "listModels",
+        "responses": {
+          "200": {
+            "description": "List of models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelList"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List models",
+        "tags": [
+          "Models"
+        ]
+      }
+    },
+    "/api/v1/admin/hosts/pending": {
+      "get": {
+        "description": "Lists hosts awaiting approval.",
+        "operationId": "adminListPendingHosts",
+        "responses": {
+          "200": {
+            "description": "Pending hosts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "hosts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AdminHost"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List pending hosts",
+        "tags": [
+          "Admin: Hosts"
+        ]
+      }
+    },
+    "/api/v1/admin/workloads/{id}/disable": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminDisableWorkload",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Disable workload (kill switch)",
+        "tags": [
+          "Admin: Workloads"
+        ]
+      }
+    },
+    "/api/v1/verification/session": {
+      "post": {
+        "description": "Creates a Stripe Identity verification session. Returns a URL to redirect the user to for identity verification.",
+        "operationId": "createVerificationSession",
+        "responses": {
+          "200": {
+            "description": "Verification session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "session_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create verification session",
+        "tags": [
+          "Verification"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "return_url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URL to redirect to after verification"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/marketplace/submissions/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminGetSubmission",
+        "responses": {
+          "200": {
+            "description": "Submission details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Submission"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Submission not found"
+          }
+        },
+        "summary": "Get submission details",
+        "tags": [
+          "Admin: Marketplace"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/users/{id}/reset": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminResetVerification",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Reset user verification",
+        "tags": [
+          "Admin: Verification"
+        ]
+      }
+    },
+    "/api/v1/workloads": {
+      "get": {
+        "description": "Lists available workloads with their requirements and pricing.",
+        "operationId": "listWorkloads",
+        "responses": {
+          "200": {
+            "description": "Workload list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "workloads": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Workload"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List workloads",
+        "tags": [
+          "Workloads"
+        ]
+      }
+    },
+    "/api/v1/verification/status": {
+      "get": {
+        "description": "Returns the authenticated user's KYC verification status.",
+        "operationId": "getVerificationStatus",
+        "responses": {
+          "200": {
+            "description": "Verification status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationStatus"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get verification status",
+        "tags": [
+          "Verification"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "description": "Returns service health status including dependency checks for Postgres and NATS.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service degraded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Health check",
+        "tags": [
+          "Health"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/hosts/{id}": {
+      "get": {
+        "description": "Retrieves a specific host by ID.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "getHost",
+        "responses": {
+          "200": {
+            "description": "Host details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Host"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Host not found"
+          }
+        },
+        "summary": "Get host",
+        "tags": [
+          "Hosts"
+        ]
+      }
+    },
+    "/api/v1/admin/hosts": {
+      "get": {
+        "description": "Lists all hosts in the system with optional status filter.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "online",
+                "offline",
+                "suspended",
+                "pending"
+              ]
+            }
+          }
+        ],
+        "operationId": "adminListHosts",
+        "responses": {
+          "200": {
+            "description": "Host list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "hosts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AdminHost"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List all hosts",
+        "tags": [
+          "Admin: Hosts"
+        ]
+      }
+    },
+    "/api/v1/marketplace/submissions": {
+      "get": {
+        "description": "Lists the authenticated user's marketplace submissions.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "description": "Filter by status",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "listSubmissions",
+        "responses": {
+          "200": {
+            "description": "Submission list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "submissions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Submission"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List submissions",
+        "tags": [
+          "Marketplace Submissions"
+        ]
+      },
+      "post": {
+        "description": "Creates a new workload submission as a draft.",
+        "operationId": "createSubmission",
+        "responses": {
+          "201": {
+            "description": "Submission created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Submission"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "summary": "Create submission",
+        "tags": [
+          "Marketplace Submissions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/marketplace/submissions": {
+      "get": {
+        "description": "Lists all marketplace submissions with optional status filter.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "adminListSubmissions",
+        "responses": {
+          "200": {
+            "description": "Submission list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "submissions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Submission"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List all submissions",
+        "tags": [
+          "Admin: Marketplace"
+        ]
+      }
+    },
+    "/api/v1/marketplace/{slug}": {
+      "get": {
+        "description": "Returns detailed information about a marketplace workload.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getMarketplaceWorkload",
+        "responses": {
+          "200": {
+            "description": "Workload details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketplaceWorkloadDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workload not found"
+          }
+        },
+        "summary": "Get workload details",
+        "tags": [
+          "Marketplace"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/admin/marketplace/submissions/{id}/approve": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminApproveSubmission",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Approve submission",
+        "tags": [
+          "Admin: Marketplace"
+        ]
+      }
+    },
+    "/api/v1/marketplace": {
+      "get": {
+        "description": "Browse available workloads in the marketplace with optional filtering.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "operationId": "browseMarketplace",
+        "responses": {
+          "200": {
+            "description": "Marketplace listings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "workloads": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MarketplaceWorkload"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Browse marketplace",
+        "tags": [
+          "Marketplace"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "description": "Lists jobs for the authenticated user.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submitted",
+                "assigned",
+                "running",
+                "succeeded",
+                "failed",
+                "cancelled"
+              ]
+            }
+          }
+        ],
+        "operationId": "listJobs",
+        "responses": {
+          "200": {
+            "description": "Job list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Job"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List jobs",
+        "tags": [
+          "Jobs"
+        ]
+      },
+      "post": {
+        "description": "Submits a new job for execution. The coordinator will find a suitable host and dispatch the job.",
+        "operationId": "createJob",
+        "responses": {
+          "201": {
+            "description": "Job created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Insufficient credits"
+          },
+          "404": {
+            "description": "Workload not found"
+          }
+        },
+        "summary": "Create job",
+        "tags": [
+          "Jobs"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/hosts/{id}/reject": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "adminRejectHost",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Reject host",
+        "tags": [
+          "Admin: Hosts"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/completions": {
+      "post": {
+        "description": "Creates a chat completion. OpenAI-compatible endpoint that supports both streaming and non-streaming responses.\n\n**Model mapping:** Standard OpenAI model names (e.g. `gpt-3.5-turbo`) are mapped to Archipelag.io workloads automatically.\n",
+        "operationId": "createChatCompletion",
+        "responses": {
+          "200": {
+            "description": "Chat completion response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionResponse"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "SSE stream of `ChatCompletionChunk` objects, terminated by `data: [DONE]`"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (bad messages, exceeds limits)"
+          },
+          "402": {
+            "description": "Insufficient credits"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "503": {
+            "description": "No available hosts"
+          }
+        },
+        "summary": "Create chat completion",
+        "tags": [
+          "Chat"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatCompletionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hosts": {
+      "get": {
+        "description": "Lists hosts owned by the authenticated user.",
+        "operationId": "listHosts",
+        "responses": {
+          "200": {
+            "description": "Host list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "hosts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Host"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List hosts",
+        "tags": [
+          "Hosts"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/users/{id}/unban": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminUnbanUser",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Unban user",
+        "tags": [
+          "Admin: Verification"
+        ]
+      }
+    },
+    "/api/v1/marketplace/{slug}/reviews": {
+      "post": {
+        "description": "Creates a review for a marketplace workload.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "createReview",
+        "responses": {
+          "201": {
+            "description": "Review created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workload not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "summary": "Create review",
+        "tags": [
+          "Marketplace Reviews"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/hosts/{id}/unverify": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "adminUnverifyHost",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Clear capability verification",
+        "tags": [
+          "Admin: Hosts"
+        ]
+      }
+    },
+    "/api/v1/jobs/{id}/stream": {
+      "get": {
+        "description": "Streams job output in real-time via Server-Sent Events.\n\nEvent types:\n- `state` — Job state change (`{\"state\": \"running\"}`)\n- `chunk` — Output chunk (`{\"content\": \"...\"}`)\n- `complete` — Job finished (`{\"state\": \"succeeded\"}`)\n- `error` — Job failed (`{\"error\": \"...\"}`)\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "streamJobOutput",
+        "responses": {
+          "200": {
+            "description": "SSE stream of job output",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        },
+        "summary": "Stream job output",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/account": {
+      "get": {
+        "description": "Returns the authenticated user's account information including credit balance.",
+        "operationId": "getAccount",
+        "responses": {
+          "200": {
+            "description": "Account information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get account",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/admin/workloads/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminGetWorkload",
+        "responses": {
+          "200": {
+            "description": "Workload details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWorkload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workload not found"
+          }
+        },
+        "summary": "Get workload details",
+        "tags": [
+          "Admin: Workloads"
+        ]
+      }
+    },
+    "/api/v1/admin/hosts/{id}/verify": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "adminVerifyHost",
+        "responses": {
+          "200": {
+            "description": "Host verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Host not found"
+          }
+        },
+        "summary": "Verify host capabilities",
+        "tags": [
+          "Admin: Hosts"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "notes": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/workloads": {
+      "get": {
+        "description": "Lists all workloads including disabled ones.",
+        "operationId": "adminListWorkloads",
+        "responses": {
+          "200": {
+            "description": "Workload list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "workloads": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AdminWorkload"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List all workloads",
+        "tags": [
+          "Admin: Workloads"
+        ]
+      }
+    },
+    "/api/v1/admin/hosts/{id}": {
+      "get": {
+        "description": "Retrieves detailed host information including approval/suspension history.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "adminGetHost",
+        "responses": {
+          "200": {
+            "description": "Host details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminHostDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Host not found"
+          }
+        },
+        "summary": "Get host details",
+        "tags": [
+          "Admin: Hosts"
+        ]
+      }
+    },
+    "/api/v1/admin/marketplace/submissions/{id}/reject": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminRejectSubmission",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Reject submission",
+        "tags": [
+          "Admin: Marketplace"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/marketplace/reviews/{id}/flag": {
+      "post": {
+        "description": "Flags a review for moderation.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "flagReview",
+        "responses": {
+          "200": {
+            "description": "Review flagged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Flag review",
+        "tags": [
+          "Marketplace Reviews"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/marketplace/submissions/{id}/scan": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminUpdateScan",
+        "responses": {
+          "200": {
+            "description": "Scan updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "security": {
+                      "type": "object",
+                      "properties": {
+                        "last_scan_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "scan_status": {
+                          "type": "string"
+                        },
+                        "vulnerabilities": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Submission not found"
+          }
+        },
+        "summary": "Update security scan results",
+        "tags": [
+          "Admin: Marketplace"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  },
+                  "vulnerabilities": {
+                    "default": 0,
+                    "type": "integer"
+                  },
+                  "image_digest": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/hosts/{id}/unsuspend": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "adminUnsuspendHost",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Unsuspend host",
+        "tags": [
+          "Admin: Hosts"
+        ]
+      }
+    },
+    "/api/v1/market/asking-prices": {
+      "post": {
+        "description": "Sets a host's asking price for a workload.",
+        "operationId": "setAskingPrice",
+        "responses": {
+          "200": {
+            "description": "Asking price set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AskingPrice"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "404": {
+            "description": "Workload or host not found"
+          }
+        },
+        "summary": "Set asking price",
+        "tags": [
+          "Market"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskingPriceCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/marketplace/submissions/{id}": {
+      "get": {
+        "description": "Retrieves a specific submission with full details.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "getSubmission",
+        "responses": {
+          "200": {
+            "description": "Submission details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Submission"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Submission not found"
+          }
+        },
+        "summary": "Get submission",
+        "tags": [
+          "Marketplace Submissions"
+        ]
+      },
+      "put": {
+        "description": "Updates a draft submission.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "updateSubmission",
+        "responses": {
+          "200": {
+            "description": "Submission updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Submission"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Submission not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "summary": "Update submission",
+        "tags": [
+          "Marketplace Submissions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionCreate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Deletes a draft submission.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "deleteSubmission",
+        "responses": {
+          "200": {
+            "description": "Submission deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Submission not found"
+          }
+        },
+        "summary": "Delete submission",
+        "tags": [
+          "Marketplace Submissions"
+        ]
+      }
+    },
+    "/api/v1/admin/marketplace/submissions/{id}/suspend": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminSuspendSubmission",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Suspend approved workload",
+        "tags": [
+          "Admin: Marketplace"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/marketplace/categories": {
+      "get": {
+        "description": "Returns all available marketplace categories.",
+        "operationId": "listMarketplaceCategories",
+        "responses": {
+          "200": {
+            "description": "Category list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MarketplaceCategory"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List categories",
+        "tags": [
+          "Marketplace"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/admin/hosts/{id}/approve": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "adminApproveHost",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Approve host",
+        "tags": [
+          "Admin: Hosts"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/users/{id}/verify": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminVerifyUser",
+        "responses": {
+          "200": {
+            "description": "Action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        },
+        "summary": "Manually verify user",
+        "tags": [
+          "Admin: Verification"
+        ]
+      }
+    },
+    "/api/v1/hosts/{id}/karma/history": {
+      "get": {
+        "description": "Returns karma event history for a host.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "operationId": "getHostKarmaHistory",
+        "responses": {
+          "200": {
+            "description": "Karma history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KarmaEvent"
+                      }
+                    },
+                    "host_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Host not found"
+          }
+        },
+        "summary": "Get karma history",
+        "tags": [
+          "Hosts"
+        ]
+      }
+    },
+    "/api/v1/market/history/{workload_slug}": {
+      "get": {
+        "description": "Returns historical market rate snapshots for a workload.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workload_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "llm-chat"
+          },
+          {
+            "in": "query",
+            "name": "hours",
+            "description": "Number of hours of history to return",
+            "schema": {
+              "default": 24,
+              "type": "integer"
+            }
+          }
+        ],
+        "operationId": "getMarketHistory",
+        "responses": {
+          "200": {
+            "description": "Market rate history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MarketRateSnapshot"
+                      }
+                    },
+                    "since": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "workload_slug": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get market rate history",
+        "tags": [
+          "Market"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/api-keys": {
+      "get": {
+        "description": "Lists all API keys for the authenticated user.",
+        "operationId": "listApiKeys",
+        "responses": {
+          "200": {
+            "description": "API key list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "api_keys": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ApiKey"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List API keys",
+        "tags": [
+          "API Keys"
+        ]
+      },
+      "post": {
+        "description": "Creates a new API key. The full key value is only returned once in this response — save it securely.",
+        "operationId": "createApiKey",
+        "responses": {
+          "201": {
+            "description": "API key created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Save this key securely - it will not be shown again"
+                    },
+                    "api_key": {
+                      "$ref": "#/components/schemas/ApiKeyCreated"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create API key",
+        "tags": [
+          "API Keys"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "default": "API Key",
+                    "type": "string",
+                    "description": "Display name for the key"
+                  },
+                  "scopes": {
+                    "default": "read,write",
+                    "type": "string",
+                    "description": "Comma-separated scopes",
+                    "example": "read,write"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{id}/output": {
+      "get": {
+        "description": "Returns the accumulated output for a completed or running job.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "getJobOutput",
+        "responses": {
+          "200": {
+            "description": "Job output",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "output": {},
+                    "state": {
+                      "type": "string"
+                    },
+                    "job_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "completed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        },
+        "summary": "Get job output",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/users": {
+      "get": {
+        "description": "Lists users with optional KYC status and search filters.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "default": "all",
+              "type": "string",
+              "enum": [
+                "all",
+                "unverified",
+                "verified",
+                "rejected",
+                "banned"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "operationId": "adminListUsers",
+        "responses": {
+          "200": {
+            "description": "User list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "users": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AdminUser"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List users",
+        "tags": [
+          "Admin: Verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/users/{id}": {
+      "get": {
+        "description": "Returns user details with verification session history.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "integer"
+            }
+          }
+        ],
+        "operationId": "adminGetUser",
+        "responses": {
+          "200": {
+            "description": "User details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/AdminUser"
+                    },
+                    "verification_sessions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/VerificationSession"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "summary": "Get user verification details",
+        "tags": [
+          "Admin: Verification"
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": {
+        "description": "Permanently revokes an API key.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "operationId": "deleteApiKey",
+        "responses": {
+          "200": {
+            "description": "Key revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "API key not found"
+          }
+        },
+        "summary": "Revoke API key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production",
+      "url": "https://app.archipelag.io"
+    }
+  ]
+}

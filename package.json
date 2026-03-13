@@ -1,0 +1,12 @@
+{
+  "name": "archipelag-api-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Archipelag.io API Reference — powered by Scalar",
+  "scripts": {
+    "fetch-spec": "curl -sf https://app.archipelag.io/api/v1/openapi.json -o openapi.json && echo 'Spec fetched from production'",
+    "fetch-spec:local": "curl -sf http://localhost:4000/api/v1/openapi.json -o openapi.json && echo 'Spec fetched from local'",
+    "dev": "npx serve .",
+    "build": "echo 'Static site — no build needed. Ensure openapi.json is present.'"
+  }
+}
