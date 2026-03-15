@@ -1459,7 +1459,7 @@
     },
     {
       "name": "Marketplace",
-      "description": "Workload marketplace browsing"
+      "description": "Cargo Registry browsing"
     },
     {
       "name": "Marketplace Reviews",
@@ -1487,7 +1487,7 @@
     },
     {
       "name": "Admin: Marketplace",
-      "description": "Marketplace submission administration"
+      "description": "Cargo Registry submission administration"
     }
   ],
   "openapi": "3.1.0",
@@ -2617,7 +2617,7 @@
     },
     "/api/v1/marketplace/submissions": {
       "get": {
-        "description": "Lists the authenticated user's marketplace submissions.",
+        "description": "Lists the authenticated user's Cargo Registry submissions.",
         "parameters": [
           {
             "in": "query",
@@ -2693,7 +2693,7 @@
     },
     "/api/v1/admin/marketplace/submissions": {
       "get": {
-        "description": "Lists all marketplace submissions with optional status filter.",
+        "description": "Lists all Cargo Registry submissions with optional status filter.",
         "parameters": [
           {
             "in": "query",
@@ -2735,7 +2735,7 @@
     },
     "/api/v1/marketplace/{slug}": {
       "get": {
-        "description": "Returns detailed information about a marketplace workload.",
+        "description": "Returns detailed information about a Cargo Registry workload.",
         "parameters": [
           {
             "in": "path",
@@ -2806,7 +2806,7 @@
     },
     "/api/v1/marketplace": {
       "get": {
-        "description": "Browse available workloads in the marketplace with optional filtering.",
+        "description": "Browse available workloads in the Cargo Registry with optional filtering.",
         "parameters": [
           {
             "in": "query",
@@ -2845,7 +2845,7 @@
         "operationId": "browseMarketplace",
         "responses": {
           "200": {
-            "description": "Marketplace listings",
+            "description": "Cargo Registry listings",
             "content": {
               "application/json": {
                 "schema": {
@@ -2866,7 +2866,7 @@
             }
           }
         },
-        "summary": "Browse marketplace",
+        "summary": "Browse Cargo Registry",
         "tags": [
           "Marketplace"
         ],
@@ -3150,7 +3150,7 @@
     },
     "/api/v1/marketplace/{slug}/reviews": {
       "post": {
-        "description": "Creates a review for a marketplace workload.",
+        "description": "Creates a review for a Cargo Registry workload.",
         "parameters": [
           {
             "in": "path",
@@ -3868,7 +3868,7 @@
     },
     "/api/v1/marketplace/categories": {
       "get": {
-        "description": "Returns all available marketplace categories.",
+        "description": "Returns all available Cargo Registry categories.",
         "operationId": "listMarketplaceCategories",
         "responses": {
           "200": {
